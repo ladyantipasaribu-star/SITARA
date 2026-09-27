@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SITARA - Sistem Integrasi Sawit-Ternak</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS & JS for Real-time Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            light: '#16a34a',
+                            DEFAULT: '#15803d',
+                            dark: '#14532d',
+                            accent: '#d97706',
+                            accentHover: '#b45309'
+                        }
+                    },
+                    boxShadow: {
+                        'glass': '0 8px 32px 0 rgba(16, 185, 129, 0.08)',
+                        'glow': '0 0 20px rgba(21, 128, 61, 0.25)',
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'fade-in': 'fadeIn 0.4s ease-out forwards',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(8px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: linear-gradient(135deg, #f4fbf7 0%, #edf7f1 40%, #fef8f0 100%);
+            min-height: 100vh;
+            color: #1e293b;
+            overflow-x: hidden; 
+        }
+
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(21, 128, 61, 0.12);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+        }
+
+        .leaflet-container {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            border-radius: 1rem;
+            z-index: 10;
+        }
+
+        .custom-popup .leaflet-popup-content-wrapper {
+            border-radius: 0.85rem;
+            box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.12);
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+        }
+
+        .page-section { display: none; }
+        .page-section.active { display: block; animation: fadeIn 0.4s ease-out; }
+
+        /* Custom button styling for mobile top bar */
+        .mobile-nav-btn {
+            white-space: nowrap;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mobile-nav-btn.active {
+            background-color: #15803d;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(21, 128, 61, 0.3);
+            font-weight: 700;
+        }
+
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
+        .toast { transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="antialiased flex flex-col min-h-screen">
+
+    <header class="sticky top-0 z-50 glass-panel shadow-sm border-b border-emerald-900/10">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Brand Logo -->
+                <div class="flex items-center cursor-pointer gap-2.5" onclick="navigateTo('home')">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-dark via-brand to-emerald-400 flex items-center justify-center text-white shadow-md shadow-brand/20">
+                        <i class="fa-solid fa-leaf text-xl"></i>
+                    </div>
+                    <div>
+                        <span class="font-extrabold text-xl tracking-tight text-slate-900 leading-none block">SITARA</span>
+                        <span class="text-[10px] font-bold text-brand uppercase tracking-wider block">Sawit-Ternak</span>
+                    </div>
+                </div>
+                
+                <!-- Desktop Navigation Links -->
+                <nav class="hidden md:flex items-center space-x-1 lg:space-x-2 text-sm font-semibold">
+                    <button onclick="navigateTo('home')" id="desktop-nav-home" class="desktop-nav-btn px-3 py-2 rounded-lg text-slate-700 hover:text-brand hover:bg-emerald-50/80 transition">Home</button>
+                    <button onclick="navigateTo('calculator')" id="desktop-nav-calculator" class="desktop-nav-btn px-3 py-2 rounded-lg text-slate-700 hover:text-brand hover:bg-emerald-50/80 transition">Kalkulator</button>
+                    <button onclick="navigateTo('map')" id="desktop-nav-map" class="desktop-nav-btn px-3 py-2 rounded-lg text-slate-700 hover:text-brand hover:bg-emerald-50/80 transition">Peta Potensi</button>
+                    <button onclick="navigateTo('marketplace')" id="desktop-nav-marketplace" class="desktop-nav-btn px-3 py-2 rounded-lg text-slate-700 hover:text-brand hover:bg-emerald-50/80 transition">Marketplace</button>
+                    <button onclick="navigateTo('edu')" id="desktop-nav-edu" class="desktop-nav-btn px-3 py-2 rounded-lg text-slate-700 hover:text-brand hover:bg-emerald-50/80 transition">SITARA Edu</button>
+                    <button onclick="navigateTo('dashboard')" id="desktop-nav-dashboard" class="desktop-nav-btn px-3 py-2 rounded-lg text-slate-700 hover:text-brand hover:bg-emerald-50/80 transition">Dampak</button>
+                </nav>
+
+                <!-- Header Actions: Fullscreen & Profile -->
+                <div class="flex items-center gap-2">
+                    <!-- Fullscreen Toggle Button -->
+                    <button onclick="toggleFullScreen()" title="Full Screen" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-brand transition flex items-center justify-center shadow-sm border border-slate-200/80">
+                        <i id="fullscreen-icon" class="fa-solid fa-expand text-base"></i>
+                    </button>
+                    
+                    <!-- Profile Button -->
+                    <button onclick="navigateTo('profile')" class="bg-gradient-to-r from-brand to-brand-dark text-white px-3.5 py-2 rounded-xl hover:shadow-lg hover:shadow-brand/20 transition text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-user-circle text-base"></i>
+                        <span class="hidden sm:inline">Profil Saya</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Navigation Bar - Always visible horizontally scrollable pills -->
+        <div class="md:hidden border-t border-slate-200/70 bg-emerald-950/5 px-2 py-2">
+            <div class="flex items-center gap-1.5 overflow-x-auto hide-scroll pb-0.5">
+                <button onclick="navigateTo('home')" id="mobile-nav-home" class="mobile-nav-btn text-xs font-semibold px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center gap-1.5 shrink-0">
+                    <i class="fa-solid fa-house text-xs"></i> Home
+                </button>
+                <button onclick="navigateTo('calculator')" id="mobile-nav-calculator" class="mobile-nav-btn text-xs font-semibold px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center gap-1.5 shrink-0">
+                    <i class="fa-solid fa-calculator text-xs"></i> Kalkulator
+                </button>
+                <button onclick="navigateTo('map')" id="mobile-nav-map" class="mobile-nav-btn text-xs font-semibold px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center gap-1.5 shrink-0">
+                    <i class="fa-solid fa-map-location-dot text-xs"></i> Peta Potensi
+                </button>
+                <button onclick="navigateTo('marketplace')" id="mobile-nav-marketplace" class="mobile-nav-btn text-xs font-semibold px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center gap-1.5 shrink-0">
+                    <i class="fa-solid fa-store text-xs"></i> Marketplace
+                </button>
+                <button onclick="navigateTo('edu')" id="mobile-nav-edu" class="mobile-nav-btn text-xs font-semibold px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center gap-1.5 shrink-0">
+                    <i class="fa-solid fa-book-open text-xs"></i> SITARA Edu
+                </button>
+                <button onclick="navigateTo('dashboard')" id="mobile-nav-dashboard" class="mobile-nav-btn text-xs font-semibold px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm flex items-center gap-1.5 shrink-0">
+                    <i class="fa-solid fa-chart-line text-xs"></i> Dampak
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow">
+        
+        <!-- 1. HOME SECTION -->
+        <section id="view-home" class="page-section active">
+            <!-- Hero with Plantation & Livestock Background -->
+            <div class="relative py-20 lg:py-28 overflow-hidden">
+                <!-- Background Image & Gradient Overlay -->
+                <div class="absolute inset-0 z-0">
+                    <img src="https://images.unsplash.com/photo-1595838788339-16a70e70be3e?auto=format&fit=crop&w=1600&q=80" alt="Perkebunan Sawit dan Peternakan" class="w-full h-full object-cover object-center scale-105 filter brightness-90">
+                    <div class="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-900/80 to-brand-dark/75"></div>
+                    <!-- Decorative glowing orbs -->
+                    <div class="absolute top-10 right-10 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl"></div>
+                    <div class="absolute bottom-5 left-10 w-80 h-80 bg-amber-500/20 rounded-full blur-3xl"></div>
+                </div>
+
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                    <div class="text-center max-w-3xl mx-auto">
+                        <span class="inline-flex items-center gap-2 py-1.5 px-4 rounded-full bg-emerald-500/20 text-emerald-300 text-xs sm:text-sm font-semibold mb-6 border border-emerald-400/30 backdrop-blur-md">
+                            <i class="fa-solid fa-seedling"></i> Ekosistem Sirkular Sawit & Ternak
+                        </span>
+                        
+                        <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black text-white leading-tight mb-6 tracking-tight">
+                            Integrasi Perkebunan <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-300">Sawit</span> & Peternakan <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-200">Berkelanjutan</span>.
+                        </h1>
+                        
+                        <p class="text-base sm:text-lg text-slate-200 mb-8 leading-relaxed font-normal">
+                            SITARA mengoptimalkan potensi biomassa perkebunan sawit menjadi sumber daya pakan dan nutrisi ternak yang terintegrasi, efisien, dan berdampak nyata.
+                        </p>
+                        
+                        <!-- Search Bar -->
+                        <div class="max-w-xl mx-auto mb-8 relative">
+                            <input type="text" id="home-search-input" placeholder="Cari biomassa, peternak, atau materi edukasi..." class="w-full pl-12 pr-28 py-4 rounded-full border border-white/30 shadow-2xl focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 outline-none transition text-slate-800 bg-white/95 backdrop-blur-md placeholder-slate-400 font-medium text-sm">
+                            <i class="fa-solid fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 text-lg"></i>
+                            <button onclick="navigateTo('marketplace')" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-brand hover:bg-brand-dark text-white px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-md transition-all">Cari</button>
+                        </div>
+
+                        <!-- Highlights Tags -->
+                        <div class="flex flex-wrap justify-center gap-2 text-xs text-slate-300">
+                            <span class="bg-slate-800/80 px-3 py-1 rounded-full border border-slate-700/60 backdrop-blur-sm"><i class="fa-solid fa-check text-emerald-400 mr-1"></i> Pelepah & Daun Sawit</span>
+                            <span class="bg-slate-800/80 px-3 py-1 rounded-full border border-slate-700/60 backdrop-blur-sm"><i class="fa-solid fa-check text-amber-400 mr-1"></i> Pakan Fermentasi (Silase)</span>
+                            <span class="bg-slate-800/80 px-3 py-1 rounded-full border border-slate-700/60 backdrop-blur-sm"><i class="fa-solid fa-check text-blue-400 mr-1"></i> Peta Lokasi Real-time</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Role Selection Cards -->
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-20 mb-16">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Card Petani Sawit -->
+                    <div onclick="navigateTo('calculator')" class="glass-card rounded-2xl p-8 border border-emerald-100 shadow-lg hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group relative overflow-hidden bg-white/90">
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-bl-full group-hover:scale-110 transition-transform"></div>
+                        <div class="w-14 h-14 bg-gradient-to-tr from-emerald-600 to-green-500 rounded-2xl flex items-center justify-center text-white text-2xl mb-6 shadow-md shadow-emerald-500/30 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-leaf"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-900 mb-2">Saya Petani Sawit</h3>
+                        <p class="text-slate-600 mb-6 text-sm leading-relaxed">Hitung estimasi potensi biomassa di lahan kebun Anda dan hubungkan dengan peternak terdekat.</p>
+                        <span class="text-brand font-bold text-sm group-hover:translate-x-1 transition-transform inline-flex items-center gap-2">
+                            Hitung Potensi Biomassa <i class="fa-solid fa-arrow-right text-xs"></i>
+                        </span>
+                    </div>
+
+                    <!-- Card Peternak -->
+                    <div onclick="navigateTo('marketplace')" class="glass-card rounded-2xl p-8 border border-amber-100 shadow-lg hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group relative overflow-hidden bg-white/90">
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-bl-full group-hover:scale-110 transition-transform"></div>
+                        <div class="w-14 h-14 bg-gradient-to-tr from-amber-600 to-yellow-500 rounded-2xl flex items-center justify-center text-white text-2xl mb-6 shadow-md shadow-amber-500/30 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-cow"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-900 mb-2">Saya Peternak</h3>
+                        <p class="text-slate-600 mb-6 text-sm leading-relaxed">Cari sumber pakan alternatif terjangkau dari kebun sawit di wilayah sekitar Anda.</p>
+                        <span class="text-brand-accent font-bold text-sm group-hover:translate-x-1 transition-transform inline-flex items-center gap-2">
+                            Cari Bahan Pakan <i class="fa-solid fa-arrow-right text-xs"></i>
+                        </span>
+                    </div>
+
+                    <!-- Card Edukasi -->
+                    <div onclick="navigateTo('edu')" class="glass-card rounded-2xl p-8 border border-blue-100 shadow-lg hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 cursor-pointer group relative overflow-hidden bg-white/90">
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-full group-hover:scale-110 transition-transform"></div>
+                        <div class="w-14 h-14 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center text-white text-2xl mb-6 shadow-md shadow-blue-500/30 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-book-open"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-900 mb-2">Pusat Edukasi</h3>
+                        <p class="text-slate-600 mb-6 text-sm leading-relaxed">Pelajari teknik pengolahan pelepah sawit menjadi silase pakan dan pupuk ramah lingkungan.</p>
+                        <span class="text-blue-600 font-bold text-sm group-hover:translate-x-1 transition-transform inline-flex items-center gap-2">
+                            Baca Artikel Edukasi <i class="fa-solid fa-arrow-right text-xs"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Impact Stats Summary -->
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                <div class="glass-card rounded-3xl p-8 border border-emerald-100/80 shadow-md bg-gradient-to-b from-white to-emerald-50/30">
+                    <div class="text-center mb-8">
+                        <span class="text-xs font-bold text-brand uppercase tracking-widest">Dampak Ekosistem</span>
+                        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">Capaian Platform SITARA</h2>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <div class="p-4 rounded-2xl bg-white shadow-sm border border-slate-100">
+                            <div class="text-2xl sm:text-3xl font-black text-brand mb-1">12.5 Ton</div>
+                            <div class="text-xs text-slate-500 font-medium">Biomassa Terdata</div>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-white shadow-sm border border-slate-100">
+                            <div class="text-2xl sm:text-3xl font-black text-emerald-600 mb-1">8.2 Ton</div>
+                            <div class="text-xs text-slate-500 font-medium">Termanfaatkan</div>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-white shadow-sm border border-slate-100">
+                            <div class="text-2xl sm:text-3xl font-black text-amber-600 mb-1">212</div>
+                            <div class="text-xs text-slate-500 font-medium">Pengguna Aktif</div>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-white shadow-sm border border-slate-100">
+                            <div class="text-2xl sm:text-3xl font-black text-blue-600 mb-1">243</div>
+                            <div class="text-xs text-slate-500 font-medium">Koneksi Terbentuk</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. BIOMASS CALCULATOR SECTION -->
+        <section id="view-calculator" class="page-section">
+            <div class="bg-gradient-to-r from-brand-dark via-brand to-emerald-700 py-10 text-white shadow-md">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <h1 class="text-2xl sm:text-3xl font-extrabold mb-1 flex items-center gap-3">
+                        <i class="fa-solid fa-calculator text-emerald-300"></i> Kalkulator Potensi Biomassa
+                    </h1>
+                    <p class="text-emerald-100 text-sm opacity-90">Hitung perkiraan volume limbah pelepah & daun sawit dari kebun Anda secara otomatis.</p>
+                </div>
+            </div>
+
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    
+                    <!-- Form Input -->
+                    <div class="glass-card p-6 sm:p-8 rounded-2xl shadow-lg border border-emerald-100 bg-white">
+                        <h2 class="text-lg font-bold text-slate-900 mb-6 border-b border-slate-100 pb-3 flex items-center justify-between">
+                            <span>Form Input Data Kebun</span>
+                            <span class="text-xs font-normal text-slate-400">GPS Auto-Detect Enabled</span>
+                        </h2>
+                        
+                        <form id="calc-form" onsubmit="calculateBiomass(event)">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Lokasi Kebun (Auto GPS)</label>
+                                    <div class="relative flex items-center">
+                                        <i class="fa-solid fa-location-dot absolute left-3.5 text-brand"></i>
+                                        <input type="text" id="calc-lokasi" required placeholder="Mendeteksi koordinat GPS..." class="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition text-sm bg-slate-50/50">
+                                        <button type="button" onclick="detectLocation()" class="absolute right-3 text-brand hover:text-brand-dark p-1" title="Deteksi Ulang GPS">
+                                            <i class="fa-solid fa-rotate text-sm"></i>
+                                        </button>
+                                    </div>
+                                    <p id="loc-status" class="text-xs text-slate-500 mt-1"></p>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Luas Lahan (Ha)</label>
+                                        <input type="number" id="calc-luas" min="0.1" step="0.1" required placeholder="Cth: 2.5" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition text-sm bg-slate-50/50">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Umur Sawit (Thn)</label>
+                                        <input type="number" id="calc-umur" min="1" max="30" required placeholder="Cth: 8" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition text-sm bg-slate-50/50">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Kondisi Perawatan Kebun</label>
+                                    <select id="calc-kondisi" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none transition text-sm bg-slate-50/50">
+                                        <option value="1.2">Sangat Terawat (Pemupukan Rutin)</option>
+                                        <option value="1.0" selected>Standar / Cukup</option>
+                                        <option value="0.8">Kurang Terawat (Semak Belukar)</option>
+                                    </select>
+                                </div>
+
+                                <div class="pt-2">
+                                    <button type="submit" class="w-full bg-gradient-to-r from-brand to-emerald-600 text-white font-bold py-3.5 px-4 rounded-xl hover:shadow-lg hover:shadow-brand/20 transition flex justify-center items-center gap-2 text-sm shadow-md">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i> Hitung Potensi Biomassa
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Output Result Card -->
+                    <div id="calc-result" class="glass-card p-6 sm:p-8 rounded-2xl border border-emerald-200 hidden flex-col justify-between relative overflow-hidden bg-white shadow-lg">
+                        <i class="fa-solid fa-leaf absolute -bottom-8 -right-8 text-9xl text-emerald-100/60 pointer-events-none"></i>
+                        
+                        <div class="relative z-10">
+                            <span class="text-xs font-bold text-brand uppercase tracking-wider bg-emerald-100 px-3 py-1 rounded-full">Hasil Estimasi Bulanan</span>
+                            <h2 class="text-2xl font-bold text-slate-900 mt-3 mb-1">Estimasi Biomassa Perkebunan</h2>
+                            <p class="text-xs text-slate-500 mb-6">Lokasi: <span id="res-lokasi" class="font-semibold text-slate-800">-</span></p>
+                            
+                            <div class="bg-gradient-to-br from-emerald-50 to-green-50/50 rounded-2xl p-6 border border-emerald-200 mb-6 shadow-sm">
+                                <div class="text-xs font-semibold text-emerald-800 uppercase tracking-wider mb-1">Total Pelepah & Daun Sawit</div>
+                                <div class="text-4xl sm:text-5xl font-black text-brand flex items-baseline gap-2">
+                                    ± <span id="res-total">0</span> <span class="text-sm font-bold text-slate-600">kg / bulan</span>
+                                </div>
+                            </div>
+
+                            <h3 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-3">Rekomendasi Pemanfaatan:</h3>
+                            <div class="grid grid-cols-2 gap-3 mb-6">
+                                <div class="bg-amber-50 border border-amber-200/60 p-3 rounded-xl flex items-start gap-2.5">
+                                    <i class="fa-solid fa-cow text-amber-600 text-lg mt-0.5"></i>
+                                    <div>
+                                        <div class="font-bold text-xs text-slate-800">Pakan Silase</div>
+                                        <div class="text-[11px] text-slate-500">Cacah & Fermentasi</div>
+                                    </div>
+                                </div>
+                                <div class="bg-emerald-50 border border-emerald-200/60 p-3 rounded-xl flex items-start gap-2.5">
+                                    <i class="fa-solid fa-seedling text-brand text-lg mt-0.5"></i>
+                                    <div>
+                                        <div class="font-bold text-xs text-slate-800">Pupuk/Kompos</div>
+                                        <div class="text-[11px] text-slate-500">Aplikasi Organik Kebun</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row gap-3">
+                                <button onclick="addToMarketplace()" class="flex-1 bg-brand-accent text-white py-3 px-4 rounded-xl font-bold hover:bg-amber-700 transition shadow-md text-xs sm:text-sm text-center">
+                                    <i class="fa-solid fa-plus-circle mr-1"></i> Tawarkan di Marketplace
+                                </button>
+                                <button onclick="navigateTo('map')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 py-3 px-4 rounded-xl font-bold transition text-xs sm:text-sm text-center">
+                                    Lihat Peta <i class="fa-solid fa-arrow-right ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Empty State for Result -->
+                    <div id="calc-empty" class="glass-card p-8 rounded-2xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-center h-full min-h-[360px] bg-white/60">
+                        <div class="w-16 h-16 bg-emerald-100 text-brand rounded-2xl flex items-center justify-center text-2xl mb-4 shadow-sm">
+                            <i class="fa-solid fa-chart-pie"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-800">Belum Ada Data Input</h3>
+                        <p class="text-xs text-slate-500 mt-2 max-w-xs leading-relaxed">Silakan lengkapi formulir data kebun di sebelah kiri untuk menampilkan estimasi biomassa bulanan.</p>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. PETA POTENSI SECTION -->
+        <section id="view-map" class="page-section">
+            <div class="bg-slate-900 text-white py-6 border-b border-slate-800">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-extrabold flex items-center gap-2">
+                            <i class="fa-solid fa-map-location-dot text-brand"></i> Peta Persebaran Potensi Real-Time
+                        </h1>
+                        <p class="text-slate-400 text-xs mt-1">Pemetaan lokasi penawaran biomassa (Supply) dan kebutuhan peternak (Demand).</p>
+                    </div>
+                    <div class="flex items-center gap-4 bg-slate-800/90 px-4 py-2 rounded-xl text-xs font-semibold border border-slate-700">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-sm"></span> Petani (Supply)
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <span class="w-3 h-3 rounded-full bg-amber-500 inline-block shadow-sm"></span> Peternak (Demand)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full h-[550px] relative bg-slate-100 border-y border-slate-200" id="map-wrapper">
+                <div id="real-map" class="w-full h-full z-10"></div>
+                <div id="map-loading" class="absolute inset-0 bg-white/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
+                    <i class="fa-solid fa-circle-notch fa-spin text-3xl text-brand mb-2"></i>
+                    <p class="text-slate-700 text-sm font-semibold">Memuat Peta Potensi...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. SITARA EDU SECTION (NO IMAGES, HIGH-AESTHETIC CARDS) -->
+        <section id="view-edu" class="page-section">
+            <div class="bg-gradient-to-br from-emerald-900 via-brand-dark to-slate-900 py-12 text-white">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                    <span class="text-xs font-bold text-emerald-300 uppercase tracking-widest bg-emerald-800/50 px-3 py-1 rounded-full border border-emerald-700/50">Pusat Literasi</span>
+                    <h1 class="text-3xl sm:text-4xl font-black mt-3 mb-3">SITARA <span class="text-emerald-400">Edu</span></h1>
+                    <p class="text-emerald-100 max-w-2xl mx-auto text-xs sm:text-sm leading-relaxed opacity-90">Panduan teknis dan literasi praktis pemanfaatan biomassa sawit untuk pakan & nutrisi peternakan berkelanjutan.</p>
+                    
+                    <!-- Filter Buttons -->
+                    <div class="flex flex-wrap justify-center gap-2 mt-8">
+                        <button id="edu-btn-All" onclick="filterEdu('All')" class="edu-filter-btn bg-emerald-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-md transition">Semua Topik</button>
+                        <button id="edu-btn-Biomassa Sawit" onclick="filterEdu('Biomassa Sawit')" class="edu-filter-btn bg-slate-800/80 text-slate-200 border border-slate-700 px-4 py-2 rounded-full text-xs font-semibold hover:bg-slate-700 transition">🌱 Biomassa Sawit</button>
+                        <button id="edu-btn-Integrasi Ternak" onclick="filterEdu('Integrasi Ternak')" class="edu-filter-btn bg-slate-800/80 text-slate-200 border border-slate-700 px-4 py-2 rounded-full text-xs font-semibold hover:bg-slate-700 transition">🐄 Integrasi Ternak</button>
+                        <button id="edu-btn-Lingkungan" onclick="filterEdu('Lingkungan')" class="edu-filter-btn bg-slate-800/80 text-slate-200 border border-slate-700 px-4 py-2 rounded-full text-xs font-semibold hover:bg-slate-700 transition">♻️ Lingkungan</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                
+                <!-- Featured Article Highlight Card (No image, rich layout) -->
+                <div class="glass-card rounded-3xl p-6 sm:p-8 border-2 border-emerald-200/80 shadow-xl mb-10 bg-gradient-to-r from-emerald-50 via-white to-amber-50/40 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 translate-x-6 -translate-y-6 w-32 h-32 bg-emerald-400/10 rounded-full blur-2xl group-hover:scale-150 transition-transform"></div>
+                    
+                    <div class="flex flex-col lg:flex-row gap-6 items-start justify-between relative z-10">
+                        <div class="space-y-3 max-w-3xl">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="bg-brand text-white text-[11px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">Panduan Unggulan</span>
+                                <span class="text-slate-500 text-xs font-medium"><i class="fa-regular fa-clock mr-1"></i> 6 Menit Baca</span>
+                                <span class="text-amber-600 text-xs font-bold bg-amber-100 px-2.5 py-0.5 rounded-full"><i class="fa-solid fa-star mr-1"></i> Terpopuler</span>
+                            </div>
+                            
+                            <h2 class="text-xl sm:text-2xl font-black text-slate-900 group-hover:text-brand transition-colors leading-tight">
+                                Panduan Lengkap Processing Pelepah Sawit Menjadi Pakan Silase Berkualitas
+                            </h2>
+                            
+                            <p class="text-slate-600 text-xs sm:text-sm leading-relaxed">
+                                Metode pencacahan pelepah muda, formulasi bahan aditif molase/dedak, hingga pengaturan derajat anaerobik agar pakan tahan disimpan hingga 6 bulan tanpa mengurangi nilai gizi.
+                            </p>
+
+                            <!-- Key takeaways badges -->
+                            <div class="pt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-700">
+                                <span class="bg-white px-3 py-1 rounded-lg border border-slate-200"><i class="fa-solid fa-check text-emerald-600 mr-1"></i> Hemat Biaya Pakan 30%</span>
+                                <span class="bg-white px-3 py-1 rounded-lg border border-slate-200"><i class="fa-solid fa-check text-emerald-600 mr-1"></i> Daya Simpan Panjang</span>
+                                <span class="bg-white px-3 py-1 rounded-lg border border-slate-200"><i class="fa-solid fa-check text-emerald-600 mr-1"></i> Nutrisi Terjaga</span>
+                            </div>
+                        </div>
+
+                        <div class="shrink-0 w-full lg:w-auto flex lg:flex-col justify-end">
+                            <button onclick="showToast('Membaca artikel unggulan...', 'info')" class="w-full lg:w-auto bg-brand hover:bg-brand-dark text-white font-bold px-6 py-3.5 rounded-2xl text-xs sm:text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
+                                Baca Panduan <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Articles Grid Header -->
+                <div class="flex justify-between items-center mb-6 pb-2 border-b border-slate-200">
+                    <h3 class="text-lg font-black text-slate-900" id="edu-section-title">Modul Literasi & Artikel</h3>
+                    <span class="text-xs font-medium text-slate-500">Materi Terverifikasi</span>
+                </div>
+
+                <!-- Articles Grid Container (No images, visual icons + tags) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="edu-grid">
+                    <!-- Injected dynamically via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. MARKETPLACE SECTION -->
+        <section id="view-marketplace" class="page-section">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div>
+                        <h1 class="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-store text-brand"></i> Bursa Biomassa & Matchmaking
+                        </h1>
+                        <p class="text-slate-600 text-xs sm:text-sm mt-1">Transaksi langsung penawaran limbah sawit dan kebutuhan pakan peternakan.</p>
+                    </div>
+                    
+                    <button onclick="triggerMatchAlert()" class="bg-gradient-to-r from-brand via-emerald-600 to-amber-600 text-white px-5 py-3 rounded-2xl font-bold shadow-lg hover:shadow-brand/30 transition hover:scale-105 flex items-center gap-2 text-xs sm:text-sm">
+                        <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> SITARA Match
+                    </button>
+                </div>
+
+                <!-- Marketplace Navigation Tabs -->
+                <div class="border-b border-slate-200 mb-6">
+                    <nav class="-mb-px flex space-x-6" id="marketplace-tabs">
+                        <button onclick="switchMarketplaceTab('supply')" id="tab-supply" class="border-brand text-brand font-bold py-3 px-1 border-b-2 text-xs sm:text-sm transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-leaf text-emerald-600"></i> Tersedia (Supply)
+                        </button>
+                        <button onclick="switchMarketplaceTab('demand')" id="tab-demand" class="border-transparent text-slate-500 hover:text-slate-700 font-semibold py-3 px-1 border-b-2 text-xs sm:text-sm transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-cow text-amber-600"></i> Dibutuhkan (Demand)
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Controls Bar -->
+                <div class="flex flex-col sm:flex-row justify-between gap-3 mb-6">
+                    <div class="relative w-full sm:w-72">
+                        <input type="text" placeholder="Filter lokasi atau jenis biomassa..." class="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand focus:border-brand outline-none bg-white">
+                        <i class="fa-solid fa-filter absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-xs"></i>
+                    </div>
+                    <button onclick="showAddListingModal()" class="bg-slate-900 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-800 transition shadow-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus text-xs"></i> Buat Listing / Permintaan
+                    </button>
+                </div>
+
+                <!-- Listings Grid Container -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="marketplace-grid">
+                    <!-- Injected via JS -->
+                </div>
+            </div>
+
+            <!-- SITARA Match Modal -->
+            <div id="match-overlay" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+                <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-2xl max-w-md w-full border border-emerald-100 transform scale-95 transition-transform duration-300" id="match-card">
+                    <div class="text-center mb-6">
+                        <div class="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner text-brand text-3xl">
+                            <i class="fa-solid fa-handshake"></i>
+                        </div>
+                        <span class="bg-emerald-100 text-brand text-[11px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">Algoritma Lokasi Cocok</span>
+                        <h2 class="text-2xl font-black text-slate-900 mt-2">Matchmaking Berhasil!</h2>
+                        <p class="text-slate-500 text-xs mt-1">SITARA Match mendeteksi pasokan biomassa terdekat yang cocok dengan kebutuhan Anda.</p>
+                    </div>
+                    
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 relative">
+                        <div class="absolute -right-2 -top-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-md">98% Match</div>
+                        
+                        <div class="flex items-center gap-3 mb-3 border-b border-slate-200 pb-3">
+                            <div class="w-10 h-10 bg-brand text-white rounded-xl flex items-center justify-center font-bold text-sm">PA</div>
+                            <div>
+                                <h4 class="font-bold text-slate-800 text-sm">Petani Ahmad</h4>
+                                <p class="text-xs text-slate-500"><i class="fa-solid fa-location-dot text-brand mr-1"></i> Sungai Pinang (4.2 km)</p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <span class="text-slate-400 text-[10px] uppercase font-bold block">Komoditas:</span>
+                                <span class="font-bold text-slate-800">Pelepah Sawit Segar</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 text-[10px] uppercase font-bold block">Volume:</span>
+                                <span class="font-bold text-brand">± 500 kg</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button onclick="closeMatchAlert()" class="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200 transition text-xs">Abaikan</button>
+                        <button onclick="connectMatch()" class="flex-1 bg-[#25D366] text-white py-3 rounded-xl font-bold hover:bg-green-600 transition shadow-md flex justify-center items-center gap-2 text-xs">
+                            <i class="fa-brands fa-whatsapp text-base"></i> Connect WhatsApp
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. DASHBOARD DAMPAK SECTION -->
+        <section id="view-dashboard" class="page-section">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div class="mb-6">
+                    <h1 class="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-brand"></i> Dashboard Dampak Sirkularitas
+                    </h1>
+                    <p class="text-slate-600 text-xs sm:text-sm mt-1">Parameter kuantitatif integrasi sawit-ternak dan efisiensi ekonomi.</p>
+                </div>
+
+                <!-- Key Metrics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div class="glass-card p-5 rounded-2xl shadow-sm border-l-4 border-l-brand bg-white">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Total Biomassa Terdata</h4>
+                        <p class="text-2xl font-black text-slate-900" id="dash-biomassa-total">12,500 <span class="text-xs font-normal text-slate-500">kg</span></p>
+                    </div>
+                    <div class="glass-card p-5 rounded-2xl shadow-sm border-l-4 border-l-emerald-500 bg-white">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Telah Dimanfaatkan</h4>
+                        <p class="text-2xl font-black text-slate-900" id="dash-biomassa-manfaat">8,200 <span class="text-xs font-normal text-slate-500">kg</span></p>
+                    </div>
+                    <div class="glass-card p-5 rounded-2xl shadow-sm border-l-4 border-l-blue-500 bg-white">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Total Pengguna Platform</h4>
+                        <p class="text-2xl font-black text-slate-900">212 <span class="text-xs font-normal text-slate-500">anggota</span></p>
+                    </div>
+                    <div class="glass-card p-5 rounded-2xl shadow-sm border-l-4 border-l-amber-500 bg-white">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Transaksi Match</h4>
+                        <p class="text-2xl font-black text-slate-900" id="dash-koneksi">243 <span class="text-xs font-normal text-slate-500">transaksi</span></p>
+                    </div>
+                </div>
+
+                <!-- Progress Analytics -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 glass-card p-6 rounded-2xl shadow-sm border border-slate-200 bg-white">
+                        <h3 class="text-base font-bold text-slate-900 mb-6">Tingkat Penyerapan Komoditas Biomassa</h3>
+                        
+                        <div class="space-y-5">
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span class="text-slate-700">Pelepah Sawit</span>
+                                    <span class="text-brand">75% (6,000 kg)</span>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-full h-3">
+                                    <div class="bg-brand h-3 rounded-full" style="width: 75%"></div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span class="text-slate-700">Bungkil Inti Sawit (BIS)</span>
+                                    <span class="text-emerald-600">90% (1,800 kg)</span>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-full h-3">
+                                    <div class="bg-emerald-500 h-3 rounded-full" style="width: 90%"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-1">
+                                    <span class="text-slate-700">Tandan Kosong (TKS)</span>
+                                    <span class="text-amber-600">30% (400 kg)</span>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-full h-3">
+                                    <div class="bg-amber-500 h-3 rounded-full" style="width: 30%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 p-4 bg-emerald-50/80 rounded-xl border border-emerald-200 flex items-start gap-3">
+                            <i class="fa-solid fa-lightbulb text-brand text-lg mt-0.5"></i>
+                            <div>
+                                <h4 class="font-bold text-slate-800 text-xs">Insight Sirkularitas</h4>
+                                <p class="text-xs text-slate-600 mt-0.5 leading-relaxed">Adopsi mesin pencacah di kelompok tani meningkatkan utilisasi pelepah sawit sebesar 15% pada kuartal ini.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-slate-900 to-slate-950 p-6 rounded-2xl shadow-md text-white border border-slate-800 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-base font-bold mb-4 flex items-center gap-2">
+                                <i class="fa-solid fa-earth-asia text-emerald-400"></i> Estimasi Reduksi Emisi
+                            </h3>
+                            
+                            <div class="space-y-5">
+                                <div>
+                                    <div class="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Penurunan Pembakaran Biomassa</div>
+                                    <div class="text-3xl font-black text-emerald-400">8.2 <span class="text-sm font-normal text-slate-300">Ton</span></div>
+                                    <p class="text-[11px] text-slate-400 mt-1">Mengurangi potensi asap dan gas rumah kaca.</p>
+                                </div>
+                                
+                                <div class="pt-4 border-t border-slate-800">
+                                    <div class="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Penghematan Biaya Pakan</div>
+                                    <div class="text-3xl font-black text-amber-400">~Rp 12,5 <span class="text-sm font-normal text-slate-300">Juta</span></div>
+                                    <p class="text-[11px] text-slate-400 mt-1">Akumulasi efisiensi biaya peternak pengguna.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-6">
+                            <span class="text-[10px] text-slate-500 block">Metrik diperbarui bulanan secara agregat.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7. PROFIL SECTION -->
+        <section id="view-profile" class="page-section">
+            <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                <div class="glass-card rounded-3xl shadow-lg border border-slate-200 overflow-hidden bg-white">
+                    <div class="h-32 bg-gradient-to-r from-brand-dark via-brand to-emerald-600 relative">
+                        <button onclick="showEditProfileModal()" class="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full px-4 py-1.5 text-xs font-bold backdrop-blur-md transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-pen"></i> Edit Profil
+                        </button>
+                    </div>
+                    <div class="px-6 pb-6 relative">
+                        <div class="w-20 h-20 bg-emerald-100 rounded-2xl border-4 border-white shadow-md absolute -top-10 flex items-center justify-center text-3xl text-brand font-bold overflow-hidden">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        
+                        <div class="pt-12 flex flex-col sm:flex-row justify-between sm:items-end gap-3">
+                            <div>
+                                <h1 class="text-2xl font-black text-slate-900" id="prof-name">Budi Santoso</h1>
+                                <p class="text-slate-500 text-xs font-medium mt-0.5">
+                                    <i class="fa-solid fa-leaf text-brand mr-1"></i> <span id="prof-role">Petani Sawit</span> &bull; 
+                                    <i class="fa-solid fa-location-dot ml-1 text-slate-400"></i> <span id="prof-loc">Kab. Muaro Jambi</span>
+                                </p>
+                            </div>
+                            <span class="bg-emerald-100 text-brand px-3 py-1 rounded-full text-xs font-extrabold self-start sm:self-auto border border-emerald-200">
+                                Terverifikasi
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 border-t border-b border-slate-100 bg-slate-50/80 text-center divide-x divide-slate-200/80">
+                        <div class="py-3.5">
+                            <div class="text-xl font-black text-slate-900">4</div>
+                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Listing Aktif</div>
+                        </div>
+                        <div class="py-3.5">
+                            <div class="text-xl font-black text-slate-900" id="prof-koneksi">12</div>
+                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Match Koneksi</div>
+                        </div>
+                        <div class="py-3.5">
+                            <div class="text-xl font-black text-brand">1.2 Ton</div>
+                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Penyaluran</div>
+                        </div>
+                    </div>
+
+                    <div class="p-6">
+                        <h3 class="text-sm font-bold text-slate-900 mb-3 border-b pb-2">Aktivitas Posting</h3>
+                        <div class="flex items-center justify-between p-3.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 bg-emerald-100 text-brand rounded-lg flex items-center justify-center text-sm">
+                                    <i class="fa-solid fa-box"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800 text-xs">Pelepah Sawit Segar (300 kg)</h4>
+                                    <p class="text-[10px] text-slate-400">Diperbarui 2 hari lalu</p>
+                                </div>
+                            </div>
+                            <span class="bg-emerald-100 text-brand text-[10px] font-bold px-2 py-0.5 rounded">Tersedia</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Edit Profile -->
+    <div id="modal-edit-profile" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-base text-slate-800">Edit Profil</h3>
+                <button onclick="closeEditProfileModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Nama Lengkap</label>
+                    <input type="text" id="edit-prof-name" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-xs outline-none focus:border-brand">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Peran Pengguna</label>
+                    <select id="edit-prof-role" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-xs outline-none focus:border-brand bg-white">
+                        <option value="Petani Sawit">Petani Sawit</option>
+                        <option value="Peternak">Peternak</option>
+                        <option value="Koperasi / Mitra">Koperasi / Mitra</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Kabupaten / Lokasi</label>
+                    <input type="text" id="edit-prof-loc" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-xs outline-none focus:border-brand">
+                </div>
+                <div class="pt-2 flex gap-3">
+                    <button onclick="closeEditProfileModal()" class="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold text-xs">Batal</button>
+                    <button onclick="saveProfile()" class="flex-1 bg-brand text-white py-2.5 rounded-xl font-bold text-xs shadow-md">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Tambah Listing -->
+    <div id="modal-add" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-base text-slate-800">Tambah Listing Baru</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Tipe Postingan</label>
+                    <select id="new-item-type" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-xs outline-none focus:border-brand bg-white">
+                        <option value="supply">Menawarkan Supply (Petani)</option>
+                        <option value="demand">Membutuhkan Demand (Peternak)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Nama Komoditas / Barang</label>
+                    <input type="text" id="new-item-name" placeholder="Cth: Pelepah Sawit / Bungkil Inti" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-xs outline-none focus:border-brand">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Jumlah (kg)</label>
+                    <input type="number" id="new-item-qty" placeholder="Cth: 500" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-xs outline-none focus:border-brand">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Nomor WhatsApp Contact</label>
+                    <input type="text" id="new-item-phone" placeholder="Cth: 081234567890" class="w-full px-4 py-2.5 border border-slate-300 rounded-xl text-xs outline-none focus:border-brand">
+                </div>
+                <div class="pt-2 flex gap-3">
+                    <button onclick="closeModal()" class="flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl font-bold text-xs">Batal</button>
+                    <button onclick="submitNewListing()" class="flex-1 bg-brand text-white py-2.5 rounded-xl font-bold text-xs shadow-md">Publish Listing</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Section -->
+    <footer class="bg-slate-950 text-slate-400 py-10 border-t border-slate-800 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <div class="flex items-center justify-center mb-3 gap-2">
+                <div class="w-7 h-7 rounded-lg bg-brand flex items-center justify-center text-white text-xs">
+                    <i class="fa-solid fa-leaf"></i>
+                </div>
+                <span class="font-extrabold text-base text-white tracking-wide">SITARA</span>
+            </div>
+            
+            <!-- Updated Footer Text as requested -->
+            <p class="text-sm font-semibold text-slate-300 tracking-wide">
+                Sistem Integrasi Sawit-Ternak. NETCO JAYA. 2026.
+            </p>
+            <p class="text-[11px] text-slate-500 mt-1">Platform Manajemen Biomassa Sirkular Indonesia.</p>
+        </div>
+    </footer>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script>
+        // Global State Data
+        let globalStats = {
+            totalBiomass: 12500,
+            utilized: 8200,
+            connections: 243,
+            userConnections: 12
+        };
+
+        const mockListings = [
+            { id: 1, type: 'supply', user: 'Petani Budi', item: 'Pelepah Sawit Segar', qty: '500', loc: 'Kab. Muaro Jambi', dist: '2 km', time: 'Baru saja', phone: '628111111111' },
+            { id: 2, type: 'demand', user: 'Peternakan Berkah', item: 'Pelepah / Daun Sawit', qty: '300', loc: 'Kota Jambi', dist: '5 km', time: '2 jam lalu', phone: '628222222222' },
+            { id: 3, type: 'supply', user: 'KUD Tani Mandiri', item: 'Bungkil Inti Sawit', qty: '1000', loc: 'Kec. Mestong', dist: '12 km', time: '1 hari lalu', phone: '628333333333' },
+            { id: 4, type: 'supply', user: 'Pak Joko', item: 'Tandan Kosong (TKS)', qty: '250', loc: 'Desa Bahar', dist: '4 km', time: '3 hari lalu', phone: '628444444444' },
+            { id: 5, type: 'demand', user: 'Kandang Sapi Maju', item: 'Bungkil Inti Sawit', qty: '150', loc: 'Kec. Kumpeh', dist: '8 km', time: '5 jam lalu', phone: '628555555555' },
+        ];
+
+        // Redesigned Edu Articles Data (NO IMAGES, pure card design elements)
+        const mockEduArticles = [
+            { 
+                id: 1,
+                title: "Formula Ransum Pakan Sapi dari Pelepah Sawit Fermentasi", 
+                category: "Biomassa Sawit", 
+                icon: "fa-seedling",
+                iconColor: "text-emerald-600",
+                badgeBg: "bg-emerald-100 text-emerald-800",
+                cardAccent: "border-emerald-200 hover:border-emerald-400",
+                readTime: "4 Min",
+                description: "Prosedur penambahan molase 2% dan dedak halus untuk mempercepat proses ensilase pelepah sawit tercacah."
+            },
+            { 
+                id: 2,
+                title: "Manajemen Integrasi Sapi-Sawit Tanpa Mengganggu Tanaman Utama", 
+                category: "Integrasi Ternak", 
+                icon: "fa-cow",
+                iconColor: "text-amber-600",
+                badgeBg: "bg-amber-100 text-amber-800",
+                cardAccent: "border-amber-200 hover:border-amber-400",
+                readTime: "5 Min",
+                description: "Rotasi sistem gembala terkontrol (rotational grazing) untuk mencegah pemadatan tanah di area perkebunan."
+            },
+            { 
+                id: 3,
+                title: "Dampak Pengurangan Emisi Karbon Melalui Pemanfaatan Biomassa", 
+                category: "Lingkungan", 
+                icon: "fa-earth-asia",
+                iconColor: "text-blue-600",
+                badgeBg: "bg-blue-100 text-blue-800",
+                cardAccent: "border-blue-200 hover:border-blue-400",
+                readTime: "3 Min",
+                description: "Studi perbandingan pembakaran pelepah terbuka versus pembentukan silase dalam siklus nutrisi tanah."
+            },
+            { 
+                id: 4,
+                title: "Pemanfaatan Bungkil Inti Sawit (BIS) Sebagai Konsentrat Protein", 
+                category: "Biomassa Sawit", 
+                icon: "fa-cubes",
+                iconColor: "text-emerald-600",
+                badgeBg: "bg-emerald-100 text-emerald-800",
+                cardAccent: "border-emerald-200 hover:border-emerald-400",
+                readTime: "5 Min",
+                description: "Kandungan protein kasar 16-18% pada BIS dan batas takaran ideal pengumpanan harian ternak ruminansia."
+            },
+            { 
+                id: 5,
+                title: "Konversi Kotoran Ternak Menjadi Biogas & Bio-Slurry Kebun", 
+                category: "Integrasi Ternak", 
+                icon: "fa-bolt",
+                iconColor: "text-amber-600",
+                badgeBg: "bg-amber-100 text-amber-800",
+                cardAccent: "border-amber-200 hover:border-amber-400",
+                readTime: "6 Min",
+                description: "Teknik reaktor digester sederhana skala rumah tangga tani untuk substitusi pupuk kimia."
+            }
+        ];
+
+        let currentMarketTab = 'supply';
+        let currentEduCategory = 'All';
+
+        // --- Navigation Router ---
+        function navigateTo(pageId) {
+            document.querySelectorAll('.page-section').forEach(el => {
+                el.classList.remove('active');
+            });
+            const target = document.getElementById('view-' + pageId);
+            if (target) {
+                target.classList.add('active');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Update mobile button active state
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => btn.classList.remove('active'));
+            const activeMobileBtn = document.getElementById('mobile-nav-' + pageId);
+            if(activeMobileBtn) activeMobileBtn.classList.add('active');
+
+            // Lazy initialization hooks
+            if(pageId === 'calculator' && !document.getElementById('calc-lokasi').value) {
+                detectLocation();
+            }
+            if(pageId === 'marketplace') {
+                renderMarketplace();
+            }
+            if(pageId === 'edu') {
+                renderEdu();
+            }
+            if(pageId === 'map') {
+                initMap();
+            }
+        }
+
+        // --- Fullscreen Feature ---
+        function toggleFullScreen() {
+            const icon = document.getElementById('fullscreen-icon');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    if(icon) {
+                        icon.classList.remove('fa-expand');
+                        icon.classList.add('fa-compress');
+                    }
+                    showToast('Mode Full Screen Aktif', 'info');
+                }).catch(err => {
+                    showToast('Gagal mengaktifkan Full Screen', 'error');
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().then(() => {
+                        if(icon) {
+                            icon.classList.remove('fa-compress');
+                            icon.classList.add('fa-expand');
+                        }
+                    });
+                }
+            }
+        }
+
+        // --- Calculator Logic ---
+        function calculateBiomass(e) {
+            e.preventDefault();
+            
+            const lokasi = document.getElementById('calc-lokasi').value || 'Lokasi Terdeteksi';
+            const luas = parseFloat(document.getElementById('calc-luas').value) || 1;
+            const umur = parseInt(document.getElementById('calc-umur').value) || 5;
+            const kondisi = parseFloat(document.getElementById('calc-kondisi').value) || 1.0;
+            
+            let ageFactor = 1.0;
+            if (umur < 4) ageFactor = 0.5;
+            else if (umur > 20) ageFactor = 0.8;
+
+            const baseKgPerHa = 143 * 2 * 2.5;
+            const totalEstimated = Math.round(luas * baseKgPerHa * ageFactor * kondisi);
+
+            document.getElementById('res-lokasi').textContent = lokasi;
+            animateValue('res-total', 0, totalEstimated, 800);
+
+            document.getElementById('calc-empty').classList.add('hidden');
+            const resultBox = document.getElementById('calc-result');
+            resultBox.classList.remove('hidden');
+            resultBox.classList.add('flex');
+            
+            showToast('Estimasi biomassa berhasil dihitung!', 'success');
+        }
+
+        function animateValue(id, start, end, duration) {
+            const obj = document.getElementById(id);
+            if(!obj) return;
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const easeProgress = progress * (2 - progress); 
+                obj.innerHTML = new Intl.NumberFormat('id-ID').format(Math.floor(easeProgress * (end - start) + start));
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        // --- Leaflet Realtime Map ---
+        let mapInitialized = false;
+        let leafletMap = null;
+
+        function initMap() {
+            if(mapInitialized) {
+                setTimeout(() => { if(leafletMap) leafletMap.invalidateSize(); }, 200);
+                return;
+            }
+            
+            const defaultLat = -1.6101; 
+            const defaultLng = 103.6131;
+
+            leafletMap = L.map('real-map').setView([defaultLat, defaultLng], 10);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(leafletMap);
+
+            const mapLoading = document.getElementById('map-loading');
+            if(mapLoading) mapLoading.style.display = 'none';
+
+            const supplyIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="w-8 h-8 bg-emerald-600 border-2 border-white rounded-full shadow-lg flex items-center justify-center"><i class="fa-solid fa-leaf text-white text-xs"></i></div>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 32],
+                popupAnchor: [0, -32]
+            });
+
+            const demandIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="w-8 h-8 bg-amber-500 border-2 border-white rounded-full shadow-lg flex items-center justify-center"><i class="fa-solid fa-cow text-white text-xs"></i></div>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 32],
+                popupAnchor: [0, -32]
+            });
+
+            mockListings.forEach((item) => {
+                const lat = defaultLat + (Math.random() - 0.5) * 0.15;
+                const lng = defaultLng + (Math.random() - 0.5) * 0.15;
+                
+                const isSupply = item.type === 'supply';
+                const marker = L.marker([lat, lng], {icon: isSupply ? supplyIcon : demandIcon}).addTo(leafletMap);
+                
+                const popupContent = `
+                    <div class="p-2 min-w-[180px]">
+                        <span class="text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wide ${isSupply ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${isSupply ? 'Supply (Menyediakan)' : 'Demand (Membutuhkan)'}</span>
+                        <h4 class="font-bold text-slate-800 text-sm mt-2 mb-1">${item.item}</h4>
+                        <div class="text-brand font-black text-sm mb-2">± ${item.qty} kg</div>
+                        <div class="text-xs text-slate-500 border-t border-slate-100 pt-2 mb-2"><i class="fa-solid fa-user mr-1"></i> ${item.user}</div>
+                        <button onclick="contactUser('${item.phone}', '${item.user}')" class="w-full bg-[#25D366] text-white py-1.5 rounded-lg text-xs font-bold hover:bg-green-600 transition flex items-center justify-center gap-1 shadow-sm">
+                            <i class="fa-brands fa-whatsapp text-sm"></i> Hubungi WA
+                        </button>
+                    </div>
+                `;
+                marker.bindPopup(popupContent, {className: 'custom-popup'});
+            });
+
+            setTimeout(() => { if(leafletMap) leafletMap.invalidateSize(); }, 300);
+            mapInitialized = true;
+        }
+
+        // --- Geolocation ---
+        function detectLocation() {
+            const locInput = document.getElementById('calc-lokasi');
+            const statusText = document.getElementById('loc-status');
+            
+            if (!locInput) return;
+
+            if ("geolocation" in navigator) {
+                locInput.value = "Mendeteksi koordinat GPS...";
+                if(statusText) {
+                    statusText.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Menghubungkan GPS...';
+                    statusText.className = "text-xs text-brand mt-1";
+                }
+                
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        
+                        try {
+                            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                            const data = await response.json();
+                            
+                            if (data && data.address) {
+                                const city = data.address.city || data.address.regency || data.address.county || "";
+                                const village = data.address.village || data.address.suburb || "";
+                                let finalAddress = village ? `${village}, ${city}` : city;
+                                
+                                locInput.value = finalAddress || `Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`;
+                                if(statusText) {
+                                    statusText.innerHTML = '<i class="fa-solid fa-check text-emerald-600"></i> Lokasi GPS Aktif Terdeteksi';
+                                    statusText.className = "text-xs text-emerald-600 font-semibold mt-1";
+                                }
+                            } else {
+                                throw new Error();
+                            }
+                        } catch (err) {
+                            locInput.value = `Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`;
+                            if(statusText) {
+                                statusText.textContent = "Koordinat GPS aktif.";
+                                statusText.className = "text-xs text-slate-500 mt-1";
+                            }
+                        }
+                    },
+                    () => {
+                        locInput.value = "Kab. Muaro Jambi (Default)";
+                        if(statusText) {
+                            statusText.textContent = "Menggunakan lokasi default area.";
+                            statusText.className = "text-xs text-slate-500 mt-1";
+                        }
+                    },
+                    { timeout: 6000 }
+                );
+            } else {
+                locInput.value = "Kab. Muaro Jambi";
+            }
+        }
+
+        // --- Marketplace Functions ---
+        function switchMarketplaceTab(tab) {
+            currentMarketTab = tab;
+            const activeClass = "border-brand text-brand font-bold py-3 px-1 border-b-2 text-xs sm:text-sm transition flex items-center gap-1.5";
+            const inactiveClass = "border-transparent text-slate-500 hover:text-slate-700 font-semibold py-3 px-1 border-b-2 text-xs sm:text-sm transition flex items-center gap-1.5";
+            
+            const tabSupply = document.getElementById('tab-supply');
+            const tabDemand = document.getElementById('tab-demand');
+            if(tabSupply) tabSupply.className = (tab === 'supply') ? activeClass : inactiveClass;
+            if(tabDemand) tabDemand.className = (tab === 'demand') ? activeClass : inactiveClass;
+            
+            renderMarketplace();
+        }
+
+        function renderMarketplace() {
+            const grid = document.getElementById('marketplace-grid');
+            if(!grid) return;
+            grid.innerHTML = '';
+            
+            const filteredListings = mockListings.filter(item => item.type === currentMarketTab);
+
+            if (filteredListings.length === 0) {
+                grid.innerHTML = `<div class="col-span-full py-10 text-center text-slate-500 text-sm">Belum ada listing untuk kategori ini.</div>`;
+                return;
+            }
+
+            filteredListings.forEach(item => {
+                const isSupply = item.type === 'supply';
+                const card = `
+                    <div class="glass-card rounded-2xl p-6 shadow-sm border border-slate-200/80 hover:shadow-md transition flex flex-col justify-between bg-white">
+                        <div>
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="text-[10px] font-extrabold px-3 py-1 rounded-full ${isSupply ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                                    ${isSupply ? '🌱 Supply (Petani)' : '🐄 Demand (Peternak)'}
+                                </span>
+                                <span class="text-[11px] text-slate-400 font-medium">${item.time}</span>
+                            </div>
+                            <h3 class="font-bold text-slate-900 text-base mb-1">${item.item}</h3>
+                            <div class="text-2xl font-black text-brand mb-4">± ${item.qty} <span class="text-xs font-semibold text-slate-500">kg</span></div>
+                            <div class="space-y-1.5 text-xs text-slate-600 mb-6">
+                                <div class="flex items-center gap-2"><i class="fa-solid fa-user text-slate-400 w-4"></i> ${item.user}</div>
+                                <div class="flex items-center gap-2"><i class="fa-solid fa-location-dot text-slate-400 w-4"></i> ${item.loc} <span class="text-[10px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">${item.dist}</span></div>
+                            </div>
+                        </div>
+                        <button onclick="contactUser('${item.phone}', '${item.user}')" class="w-full py-2.5 bg-[#25D366] text-white rounded-xl font-bold hover:bg-green-600 transition-all text-xs flex items-center justify-center gap-2 shadow-sm">
+                            <i class="fa-brands fa-whatsapp text-base"></i> Hubungi WA (${item.phone})
+                        </button>
+                    </div>
+                `;
+                grid.innerHTML += card;
+            });
+        }
+
+        function triggerMatchAlert() {
+            const overlay = document.getElementById('match-overlay');
+            const card = document.getElementById('match-card');
+            if(!overlay || !card) return;
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                overlay.classList.remove('opacity-0');
+                card.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeMatchAlert() {
+            const overlay = document.getElementById('match-overlay');
+            const card = document.getElementById('match-card');
+            if(!overlay || !card) return;
+            overlay.classList.add('opacity-0');
+            card.classList.add('scale-95');
+            setTimeout(() => overlay.classList.add('hidden'), 300);
+        }
+
+        function connectMatch() {
+            closeMatchAlert();
+            contactUser('628555555555', 'Petani Ahmad');
+            globalStats.connections++;
+            globalStats.userConnections++;
+            updateDashboardNumbers();
+        }
+
+        function contactUser(phone, name) {
+            let cleanPhone = String(phone).replace(/\D/g, '');
+            if(cleanPhone.startsWith('0')) {
+                cleanPhone = '62' + cleanPhone.substring(1);
+            }
+            const message = encodeURIComponent(`Halo ${name}, saya tertarik dengan listing komoditas biomassa Anda di platform SITARA.`);
+            window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
+            showToast(`Menghubungkan ke WhatsApp ${name}...`, 'success');
+        }
+
+        // --- Modals ---
+        function showAddListingModal() {
+            const modal = document.getElementById('modal-add');
+            if(modal) modal.classList.remove('hidden');
+        }
+        function closeModal() {
+            const modal = document.getElementById('modal-add');
+            if(modal) modal.classList.add('hidden');
+        }
+
+        function submitNewListing() {
+            const type = document.getElementById('new-item-type').value;
+            const name = document.getElementById('new-item-name').value;
+            const qty = document.getElementById('new-item-qty').value;
+            const phone = document.getElementById('new-item-phone').value;
+            
+            if(!name || !qty || !phone) {
+                showToast('Mohon isi semua kolom data listing!', 'error');
+                return;
+            }
+
+            mockListings.unshift({
+                id: Date.now(),
+                type: type,
+                user: document.getElementById('prof-name').innerText || 'Anda',
+                item: name,
+                qty: qty,
+                loc: document.getElementById('calc-lokasi').value || 'Kab. Muaro Jambi',
+                dist: '0 km',
+                time: 'Baru saja',
+                phone: phone
+            });
+            
+            closeModal();
+            renderMarketplace();
+            showToast('Listing baru berhasil ditambahkan!', 'success');
+            
+            globalStats.totalBiomass += parseInt(qty) || 0;
+            updateDashboardNumbers();
+        }
+
+        // --- Edit Profile ---
+        function showEditProfileModal() {
+            const modal = document.getElementById('modal-edit-profile');
+            if(modal) modal.classList.remove('hidden');
+        }
+        function closeEditProfileModal() {
+            const modal = document.getElementById('modal-edit-profile');
+            if(modal) modal.classList.add('hidden');
+        }
+        function saveProfile() {
+            const newName = document.getElementById('edit-prof-name').value;
+            const newRole = document.getElementById('edit-prof-role').value;
+            const newLoc = document.getElementById('edit-prof-loc').value;
+
+            if(newName) document.getElementById('prof-name').innerText = newName;
+            if(newRole) document.getElementById('prof-role').innerText = newRole;
+            if(newLoc) document.getElementById('prof-loc').innerText = newLoc;
+
+            closeEditProfileModal();
+            showToast('Profil berhasil diperbarui!', 'success');
+        }
+
+        function addToMarketplace() {
+            navigateTo('marketplace');
+            setTimeout(showAddListingModal, 400);
+        }
+
+        // --- SITARA Edu Logic (No Images, Visual Card Rendering) ---
+        function filterEdu(category) {
+            currentEduCategory = category;
+            
+            document.querySelectorAll('.edu-filter-btn').forEach(btn => {
+                btn.className = "edu-filter-btn bg-slate-800/80 text-slate-200 border border-slate-700 px-4 py-2 rounded-full text-xs font-semibold hover:bg-slate-700 transition";
+            });
+            
+            const activeBtn = document.getElementById(`edu-btn-${category}`);
+            if(activeBtn) {
+                activeBtn.className = "edu-filter-btn bg-emerald-500 text-white px-4 py-2 rounded-full text-xs font-bold shadow-md transition";
+            }
+            
+            const titleEl = document.getElementById('edu-section-title');
+            if(titleEl) {
+                titleEl.innerText = category === 'All' ? 'Modul Literasi & Artikel' : `Artikel Topik: ${category}`;
+            }
+            
+            renderEdu();
+        }
+
+        function renderEdu() {
+            const grid = document.getElementById('edu-grid');
+            if(!grid) return;
+            grid.innerHTML = '';
+            
+            const filtered = currentEduCategory === 'All' 
+                ? mockEduArticles 
+                : mockEduArticles.filter(a => a.category === currentEduCategory);
+                
+            if(filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full py-8 text-center text-slate-500 text-xs">Belum ada artikel untuk topik ini.</div>`;
+                return;
+            }
+            
+            filtered.forEach(art => {
+                grid.innerHTML += `
+                    <div onclick="showToast('Membuka modul: ${art.title}', 'info')" class="glass-card rounded-2xl p-6 shadow-sm border ${art.cardAccent} hover:shadow-xl hover:-translate-y-1 transition duration-300 cursor-pointer flex flex-col justify-between bg-white group relative overflow-hidden">
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-extrabold px-2.5 py-1 rounded-full ${art.badgeBg}">
+                                    ${art.category}
+                                </span>
+                                <span class="text-[11px] font-semibold text-slate-400">
+                                    <i class="fa-regular fa-clock mr-1"></i> ${art.readTime}
+                                </span>
+                            </div>
+
+                            <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-xl ${art.iconColor} group-hover:scale-110 transition-transform shadow-inner">
+                                <i class="fa-solid ${art.icon}"></i>
+                            </div>
+
+                            <h4 class="font-extrabold text-slate-900 text-base leading-snug group-hover:text-brand transition-colors">
+                                ${art.title}
+                            </h4>
+
+                            <p class="text-slate-600 text-xs leading-relaxed line-clamp-3">
+                                ${art.description}
+                            </p>
+                        </div>
+
+                        <div class="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
+                            <span class="text-xs font-bold text-brand group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
+                                Baca Modul <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                            </span>
+                            <i class="fa-solid fa-bookmark text-slate-300 hover:text-brand transition"></i>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // --- Dashboard Utilities ---
+        function updateDashboardNumbers() {
+            const totalEl = document.getElementById('dash-biomassa-total');
+            const connEl = document.getElementById('dash-koneksi');
+            const profConn = document.getElementById('prof-koneksi');
+
+            if(totalEl) totalEl.innerHTML = `${new Intl.NumberFormat('id-ID').format(globalStats.totalBiomass)} <span class="text-xs font-normal text-slate-500">kg</span>`;
+            if(connEl) connEl.innerHTML = `${globalStats.connections} <span class="text-xs font-normal text-slate-500">transaksi</span>`;
+            if(profConn) profConn.innerText = globalStats.userConnections;
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if(!container) return;
+            const toast = document.createElement('div');
+            
+            let bg = 'bg-slate-900';
+            let icon = 'fa-info-circle text-blue-400';
+            if (type === 'success') { bg = 'bg-brand'; icon = 'fa-check-circle text-emerald-200'; }
+            if (type === 'error') { bg = 'bg-red-600'; icon = 'fa-circle-exclamation text-white'; }
+            
+            toast.className = `toast ${bg} text-white px-4 py-3 rounded-2xl shadow-xl mb-3 flex items-center gap-3 transform translate-y-8 opacity-0 border border-white/10 text-xs font-bold`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i> <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-8', 'opacity-0');
+            }, 10);
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderEdu();
+            // Set active pill for home initially
+            const homePill = document.getElementById('mobile-nav-home');
+            if(homePill) homePill.classList.add('active');
+        });
+    </script>
+</body>
+</html>
